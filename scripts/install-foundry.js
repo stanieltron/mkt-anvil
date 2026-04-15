@@ -26,6 +26,7 @@ const {
   createWriteStream,
   chmodSync,
   unlinkSync,
+  copyFileSync,
 } = require("node:fs");
 const { resolve, join } = require("node:path");
 const https = require("node:https");
@@ -135,6 +136,35 @@ function extractZip(zipPath, destination) {
   process.exit(1);
 }
 
+function installViaFoundryupAndMirrorLocal() {
+  if (isWin) {
+    throw new Error("Automatic foundryup fallback is not supported on Windows");
+  }
+
+  if (!commandAvailable("bash", ["--version"])) {
+    throw new Error("bash not found for foundryup fallback");
+  }
+  if (!commandAvailable("curl", ["--version"])) {
+    throw new Error("curl not found for foundryup fallback");
+  }
+
+  run("bash", ["-lc", "curl -L https://foundry.paradigm.xyz | bash && ~/.foundry/bin/foundryup"]);
+
+  const home = process.env.HOME || process.env.USERPROFILE || "";
+  const foundryupBin = join(home, ".foundry", "bin");
+  mkdirSync(binDir, { recursive: true });
+
+  for (const b of BINARIES) {
+    const src = join(foundryupBin, b);
+    const dst = join(binDir, b);
+    if (!existsSync(src)) {
+      throw new Error(`foundryup completed, but binary is missing: ${src}`);
+    }
+    copyFileSync(src, dst);
+    chmodSync(dst, 0o755);
+  }
+}
+
 async function installBinaries() {
   if (globalBinariesPresent()) {
     console.log("[ok] Foundry binaries available on PATH - skipping local download.");
@@ -157,7 +187,19 @@ async function installBinaries() {
   console.log(`  Downloading Foundry from:\n  ${url}`);
 
   const zipPath = resolve(foundryDir, "_foundry_download.zip");
-  await downloadFile(url, zipPath);
+  try {
+    await downloadFile(url, zipPath);
+  } catch (error) {
+    console.warn(`  Direct archive download failed (${String(error?.message || error)}).`);
+    console.warn("  Falling back to foundryup installer...");
+    installViaFoundryupAndMirrorLocal();
+    if (!binariesPresent()) {
+      console.error("x Foundry fallback install failed - binaries not found in foundry/bin/");
+      process.exit(1);
+    }
+    console.log("[ok] Foundry binaries installed (fallback).");
+    return;
+  }
   console.log("  Download complete.");
 
   console.log("  Extracting to foundry/bin/ ...");
