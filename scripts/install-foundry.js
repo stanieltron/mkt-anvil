@@ -36,7 +36,7 @@ const foundryDir = resolve(root, "foundry");
 const binDir = resolve(foundryDir, "bin");
 const libDir = resolve(foundryDir, "lib");
 const forgeStdDir = resolve(libDir, "forge-std");
-const staleLocalZip = resolve(foundryDir, "foundry.zip");
+const bundledLocalZip = resolve(foundryDir, "foundry.zip");
 
 const isWin = process.platform === "win32";
 const ext = isWin ? ".exe" : "";
@@ -234,40 +234,40 @@ async function installBinaries() {
 
   mkdirSync(binDir, { recursive: true });
 
-  if (existsSync(staleLocalZip)) {
-    console.log(`  Removing stale local archive: ${staleLocalZip}`);
-    unlinkSync(staleLocalZip);
-  }
-
-  let url = null;
-  try {
-    url = await getLatestFoundryZipUrlFromApi();
-  } catch {}
-  if (!url) {
-    url = getLatestFoundryZipUrl();
-  }
-  console.log(`  Downloading Foundry from:\n  ${url}`);
-
-  const zipPath = resolve(foundryDir, "_foundry_download.zip");
-  try {
-    await downloadFile(url, zipPath);
-  } catch (error) {
-    console.warn(`  Direct archive download failed (${String(error?.message || error)}).`);
-    console.warn("  Falling back to foundryup installer...");
-    installViaFoundryupAndMirrorLocal();
-    if (!binariesPresent()) {
-      console.error("x Foundry fallback install failed - binaries not found in foundry/bin/");
-      process.exit(1);
+  let zipPath = bundledLocalZip;
+  if (existsSync(bundledLocalZip)) {
+    console.log(`  Using bundled archive: ${bundledLocalZip}`);
+  } else {
+    let url = null;
+    try {
+      url = await getLatestFoundryZipUrlFromApi();
+    } catch {}
+    if (!url) {
+      url = getLatestFoundryZipUrl();
     }
-    console.log("[ok] Foundry binaries installed (fallback).");
-    return;
+    console.log(`  Downloading Foundry from:\n  ${url}`);
+
+    zipPath = resolve(foundryDir, "_foundry_download.zip");
+    try {
+      await downloadFile(url, zipPath);
+    } catch (error) {
+      console.warn(`  Direct archive download failed (${String(error?.message || error)}).`);
+      console.warn("  Falling back to foundryup installer...");
+      installViaFoundryupAndMirrorLocal();
+      if (!binariesPresent()) {
+        console.error("x Foundry fallback install failed - binaries not found in foundry/bin/");
+        process.exit(1);
+      }
+      console.log("[ok] Foundry binaries installed (fallback).");
+      return;
+    }
+    console.log("  Download complete.");
   }
-  console.log("  Download complete.");
 
   console.log("  Extracting to foundry/bin/ ...");
   extractZip(zipPath, binDir);
 
-  if (existsSync(zipPath)) {
+  if (zipPath.endsWith("_foundry_download.zip") && existsSync(zipPath)) {
     unlinkSync(zipPath);
   }
 
