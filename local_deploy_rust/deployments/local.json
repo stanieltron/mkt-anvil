@@ -1,0 +1,79 @@
+{
+  "protocolVariant": "default",
+  "defaultProtocolVariant": "default",
+  "chainId": 31337,
+  "deployer": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
+  "weth": "0x5FbDB2315678afecb367f032d93F642f64180aa3",
+  "usdc": "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512",
+  "usdt": "0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0",
+  "factory": "0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9",
+  "router": "0x5FC8d32690cc91D4c39d9d3abcBD16989F875707",
+  "routerCompat": "0x0165878A594ca255338adfa4d48449f69242Eb8F",
+  "nonfungiblePositionManager": "0x8A791620dd6260079BF849Dc5567aDC3F2FdC318",
+  "positionDescriptor": "0x2279B7A0a67DB372996a5FaB50D91eAA73d2eBe6",
+  "pool": "0x9D187010A2Aac0C8057393B21A2C2Ce089D2f5a7",
+  "poolFee": 3000,
+  "initialPriceUsdc6PerWeth": "2000000000",
+  "oracle": "0x9E545E3C0baAB3E08CdfD552C960A1050f373042",
+  "swapAdapter": "0xa82fF9aFd8f496c3d6ac40E2a0F282E47488CFc9",
+  "makeit": "0x851356ae760d987E095750cCeb3bC6014560891C",
+  "maxSlippageBps": 100,
+  "marginUsdc": "10000000",
+  "maxLeverage": 300,
+  "runnerAddress": "0x90F79bf6EB2c4f870365E785982E1f101E93b906",
+  "botAddress": "0x15d34AAf54267DB7D7c367839AAf71A00a2C6A65",
+  "swapperAddress": "0x976EA74026E726554dB657fA54763abd0C3a0aa9",
+  "testWallets": [
+    {
+      "index": 1,
+      "address": "0xBcd4042DE499D14e55001CcbB24a551F3b954096"
+    },
+    {
+      "index": 2,
+      "address": "0x71bE63f3384f5fb98995898A86B02Fb2426c5788"
+    },
+    {
+      "index": 3,
+      "address": "0xFABB0ac9d68B0B445fB7357272Ff202C5651694a"
+    },
+    {
+      "index": 4,
+      "address": "0x1CBd3b2770909D4e10f157cABC84C7264073C9Ec"
+    },
+    {
+      "index": 5,
+      "address": "0xdF3e18d64BC6A983f673Ab319CCaE4f1a57C7097"
+    },
+    {
+      "index": 6,
+      "address": "0xcd3B766CCDd6AE721141F452C550Ca635964ce71"
+    },
+    {
+      "index": 7,
+      "address": "0x2546BcD3c84621e976D8185a91A922aE77ECEc30"
+    },
+    {
+      "index": 8,
+      "address": "0xbDA5747bFD65F08deb54cb465eB87D40e51B197E"
+    },
+    {
+      "index": 9,
+      "address": "0xdD2FD4581271e230360230F9337D5c0430Bf44C0"
+    },
+    {
+      "index": 10,
+      "address": "0x8626f6940E2eb28930eFb4CeF49B2d1F2C9C1199"
+    }
+  ],
+  "faucet": {
+    "address": "0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9",
+    "ethWei": "1000000000000000000",
+    "usdc6": "1000000000",
+    "cooldownMs": 3600000,
+    "targetClaims": "1000000",
+    "fundEthWei": "1000000000000000000000000",
+    "fundUsdc6": "1000000000000000"
+  },
+  "user1Address": "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
+  "user2Address": "0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC"
+}
