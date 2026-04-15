@@ -7,8 +7,8 @@
  *
  * Behaviour:
  *  1. Binaries  - prefer globally installed Foundry from PATH.
- *                 If missing, download the latest release into foundry/bin.
- *                 If foundry/foundry.zip exists, delete it as stale.
+ *                 If missing, download the latest official release asset
+ *                 from foundry-rs/foundry into foundry/bin.
  *  2. forge-std - if foundry/lib/forge-std already exists, skips.
  *                 Otherwise clones from GitHub. No forge required.
  *
@@ -26,7 +26,6 @@ const {
   createWriteStream,
   chmodSync,
   unlinkSync,
-  copyFileSync,
 } = require("node:fs");
 const { resolve, join } = require("node:path");
 const https = require("node:https");
@@ -36,7 +35,6 @@ const foundryDir = resolve(root, "foundry");
 const binDir = resolve(foundryDir, "bin");
 const libDir = resolve(foundryDir, "lib");
 const forgeStdDir = resolve(libDir, "forge-std");
-const bundledLocalZip = resolve(foundryDir, "foundry.zip");
 
 const isWin = process.platform === "win32";
 const ext = isWin ? ".exe" : "";
@@ -88,15 +86,6 @@ function downloadFile(url, dest) {
   });
 }
 
-function getLatestFoundryZipUrl() {
-  const arch = process.arch === "arm64" ? "aarch64" : "x86_64";
-  let platform;
-  if (process.platform === "win32") platform = `${arch}_pc-windows-msvc`;
-  else if (process.platform === "darwin") platform = `${arch}-apple-darwin`;
-  else platform = `${arch}-unknown-linux-musl`;
-  return `https://github.com/foundry-rs/foundry/releases/latest/download/foundry_nightly_${platform}.zip`;
-}
-
 function fetchJson(url) {
   return new Promise((resolvePromise, reject) => {
     https
@@ -119,36 +108,32 @@ function fetchJson(url) {
   });
 }
 
-async function getLatestFoundryZipUrlFromApi() {
+async function getLatestFoundryArchiveFromApi() {
   const release = await fetchJson("https://api.github.com/repos/foundry-rs/foundry/releases/latest");
   const assets = Array.isArray(release?.assets) ? release.assets : [];
-  const arch = process.arch === "arm64" ? "aarch64" : "x86_64";
+  const isArm = process.arch === "arm64";
 
-  let platformCandidates = [];
+  let candidates = [];
   if (process.platform === "win32") {
-    platformCandidates = [`${arch}_pc-windows-msvc`];
+    candidates = [isArm ? "win32_arm64.zip" : "win32_amd64.zip"];
   } else if (process.platform === "darwin") {
-    platformCandidates = [`${arch}-apple-darwin`];
+    candidates = [isArm ? "darwin_arm64.tar.gz" : "darwin_amd64.tar.gz"];
   } else {
-    platformCandidates = [`${arch}-unknown-linux-musl`, `${arch}-unknown-linux-gnu`];
+    candidates = [isArm ? "linux_arm64.tar.gz" : "linux_amd64.tar.gz", isArm ? "alpine_arm64.tar.gz" : "alpine_amd64.tar.gz"];
   }
 
-  for (const platform of platformCandidates) {
-    const exact = assets.find((a) => typeof a?.name === "string" && a.name.endsWith(`${platform}.zip`));
-    if (exact?.browser_download_url) return exact.browser_download_url;
+  for (const suffix of candidates) {
+    const asset = assets.find((a) => typeof a?.name === "string" && a.name.endsWith(suffix));
+    if (asset?.browser_download_url) {
+      return {
+        url: asset.browser_download_url,
+        format: asset.name.endsWith(".zip") ? "zip" : "tar.gz",
+        name: asset.name,
+      };
+    }
   }
 
-  for (const platform of platformCandidates) {
-    const loose = assets.find(
-      (a) =>
-        typeof a?.name === "string" &&
-        a.name.includes(platform) &&
-        a.name.endsWith(".zip")
-    );
-    if (loose?.browser_download_url) return loose.browser_download_url;
-  }
-
-  return null;
+  throw new Error(`No compatible Foundry release asset found for ${process.platform}/${process.arch}`);
 }
 
 function extractZip(zipPath, destination) {
@@ -190,35 +175,31 @@ function extractZip(zipPath, destination) {
   process.exit(1);
 }
 
-function installViaFoundryupAndMirrorLocal() {
-  if (isWin) {
-    throw new Error("Automatic foundryup fallback is not supported on Windows");
+function extractTarGz(tarPath, destination) {
+  if (commandAvailable("tar", ["--version"])) {
+    run("tar", ["-xzf", tarPath, "-C", destination]);
+    return;
   }
-
-  if (!commandAvailable("bash", ["--version"])) {
-    throw new Error("bash not found for foundryup fallback");
+  if (commandAvailable("python3")) {
+    run("python3", [
+      "-c",
+      "import tarfile,sys; tarfile.open(sys.argv[1], 'r:gz').extractall(sys.argv[2])",
+      tarPath,
+      destination,
+    ]);
+    return;
   }
-  if (commandAvailable("curl", ["--version"])) {
-    run("bash", ["-lc", "curl -L https://foundry.paradigm.xyz | bash && ~/.foundry/bin/foundryup"]);
-  } else if (commandAvailable("wget", ["--version"])) {
-    run("bash", ["-lc", "wget -qO- https://foundry.paradigm.xyz | bash && ~/.foundry/bin/foundryup"]);
-  } else {
-    throw new Error("neither curl nor wget found for foundryup fallback");
+  if (commandAvailable("python")) {
+    run("python", [
+      "-c",
+      "import tarfile,sys; tarfile.open(sys.argv[1], 'r:gz').extractall(sys.argv[2])",
+      tarPath,
+      destination,
+    ]);
+    return;
   }
-
-  const home = process.env.HOME || process.env.USERPROFILE || "";
-  const foundryupBin = join(home, ".foundry", "bin");
-  mkdirSync(binDir, { recursive: true });
-
-  for (const b of BINARIES) {
-    const src = join(foundryupBin, b);
-    const dst = join(binDir, b);
-    if (!existsSync(src)) {
-      throw new Error(`foundryup completed, but binary is missing: ${src}`);
-    }
-    copyFileSync(src, dst);
-    chmodSync(dst, 0o755);
-  }
+  console.error("x No TAR extractor found. Install `tar` or `python3`.");
+  process.exit(1);
 }
 
 async function installBinaries() {
@@ -233,42 +214,21 @@ async function installBinaries() {
   }
 
   mkdirSync(binDir, { recursive: true });
-
-  let zipPath = bundledLocalZip;
-  if (existsSync(bundledLocalZip)) {
-    console.log(`  Using bundled archive: ${bundledLocalZip}`);
-  } else {
-    let url = null;
-    try {
-      url = await getLatestFoundryZipUrlFromApi();
-    } catch {}
-    if (!url) {
-      url = getLatestFoundryZipUrl();
-    }
-    console.log(`  Downloading Foundry from:\n  ${url}`);
-
-    zipPath = resolve(foundryDir, "_foundry_download.zip");
-    try {
-      await downloadFile(url, zipPath);
-    } catch (error) {
-      console.warn(`  Direct archive download failed (${String(error?.message || error)}).`);
-      console.warn("  Falling back to foundryup installer...");
-      installViaFoundryupAndMirrorLocal();
-      if (!binariesPresent()) {
-        console.error("x Foundry fallback install failed - binaries not found in foundry/bin/");
-        process.exit(1);
-      }
-      console.log("[ok] Foundry binaries installed (fallback).");
-      return;
-    }
-    console.log("  Download complete.");
-  }
+  const asset = await getLatestFoundryArchiveFromApi();
+  const archivePath = resolve(foundryDir, asset.format === "zip" ? "_foundry_download.zip" : "_foundry_download.tar.gz");
+  console.log(`  Downloading Foundry from official release asset:\n  ${asset.url}`);
+  await downloadFile(asset.url, archivePath);
+  console.log(`  Download complete (${asset.name}).`);
 
   console.log("  Extracting to foundry/bin/ ...");
-  extractZip(zipPath, binDir);
+  if (asset.format === "zip") {
+    extractZip(archivePath, binDir);
+  } else {
+    extractTarGz(archivePath, binDir);
+  }
 
-  if (zipPath.endsWith("_foundry_download.zip") && existsSync(zipPath)) {
-    unlinkSync(zipPath);
+  if (existsSync(archivePath)) {
+    unlinkSync(archivePath);
   }
 
   if (!isWin) {
