@@ -10,7 +10,8 @@ const host = process.env.ANVIL_HOST || "127.0.0.1";
 const port = process.env.ANVIL_PORT || "8545";
 const chainId = process.env.ANVIL_CHAIN_ID || "31337";
 const accounts = process.env.ANVIL_ACCOUNTS || "20";
-const balance = process.env.ANVIL_BALANCE || "1000000";
+// Intentionally fixed for Railway/local-chain deployments.
+const balance = "100000000000";
 const silent = String(process.env.ANVIL_SILENT || "0").toLowerCase() === "1";
 const explicitAnvilBin = process.env.ANVIL_BIN;
 const isWsl = Boolean(process.env.WSL_DISTRO_NAME);

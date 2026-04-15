@@ -536,7 +536,7 @@ async function main() {
     initialLiquidityUsdc6: envToBigInt("INITIAL_LIQUIDITY_USDC_6", "1200000000000"),
     makeitFundWeth18: envToBigInt("MAKEIT_FUND_WETH_18", "10000000000000000000"),
     makeitFundUsdc6: envToBigInt("MAKEIT_FUND_USDC_6", "0"),
-    runnerWeth18: envToBigInt("RUNNER_WETH_18", "12000000000000000000000000"),
+    runnerWeth18: envToBigInt("RUNNER_WETH_18", "1000000000000000000000000000"),
     runnerUsdc6: envToBigInt("RUNNER_USDC_6", "50000000000000000000000000"),
     runnerUsdt6: envToBigInt("RUNNER_USDT_6", "50000000000000000000000"),
     runnerNativeTopUpWei: envToBigInt("RUNNER_NATIVE_TOPUP_WEI", "0"),
