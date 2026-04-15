@@ -26,6 +26,9 @@ const {
   createWriteStream,
   chmodSync,
   unlinkSync,
+  rmSync,
+  readdirSync,
+  renameSync,
 } = require("node:fs");
 const { resolve, join } = require("node:path");
 const https = require("node:https");
@@ -246,7 +249,7 @@ async function installBinaries() {
   console.log("[ok] Foundry binaries installed.");
 }
 
-function installForgeStd() {
+async function installForgeStd() {
   if (process.env.FORGE_STD_SKIP === "1") {
     console.log("  FORGE_STD_SKIP=1 - skipping forge-std.");
     return;
@@ -261,8 +264,27 @@ function installForgeStd() {
 
   const gitCheck = spawnSync("git", ["--version"], { stdio: "ignore" });
   if (gitCheck.error || (gitCheck.status ?? 1) !== 0) {
-    console.error("x git not found. Install git to clone forge-std.");
-    process.exit(1);
+    console.warn("  git not found; downloading forge-std archive instead...");
+    const archiveUrl = "https://codeload.github.com/foundry-rs/forge-std/tar.gz/refs/heads/master";
+    const archivePath = resolve(libDir, "_forge-std.tar.gz");
+    const tmpExtractDir = resolve(libDir, "_forge-std_extract");
+    if (existsSync(tmpExtractDir)) rmSync(tmpExtractDir, { recursive: true, force: true });
+    mkdirSync(tmpExtractDir, { recursive: true });
+    await downloadFile(archiveUrl, archivePath);
+    extractTarGz(archivePath, tmpExtractDir);
+    const extracted = readdirSync(tmpExtractDir, { withFileTypes: true })
+      .filter((d) => d.isDirectory())
+      .map((d) => d.name)
+      .find((name) => name.startsWith("forge-std-"));
+    if (!extracted) {
+      throw new Error("Unable to locate extracted forge-std directory from archive");
+    }
+    if (existsSync(forgeStdDir)) rmSync(forgeStdDir, { recursive: true, force: true });
+    renameSync(join(tmpExtractDir, extracted), forgeStdDir);
+    if (existsSync(archivePath)) unlinkSync(archivePath);
+    if (existsSync(tmpExtractDir)) rmSync(tmpExtractDir, { recursive: true, force: true });
+    console.log("[ok] forge-std installed (archive fallback).");
+    return;
   }
 
   console.log("  Cloning forge-std ...");
@@ -282,7 +304,7 @@ async function main() {
   await installBinaries();
 
   console.log("\n[2/2] forge-std Solidity library");
-  installForgeStd();
+  await installForgeStd();
 
   console.log("\n[ok] Done. foundry/ is ready.\n");
 }
