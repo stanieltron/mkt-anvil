@@ -578,6 +578,8 @@ async function main() {
   console.log(`Deployer: ${deployerAddress}`);
   console.log(`Runner wallet: ${wallets.runner.address}`);
   console.log(`Runner private key: ${hdWallets.runner.privateKey}`);
+  console.log(`Liquidation bot wallet: ${wallets.bot.address}`);
+  console.log(`Liquidation bot private key: ${hdWallets.bot.privateKey}`);
   console.log(`Swapper wallet: ${wallets.swapper.address}`);
   console.log(`Swapper private key: ${hdWallets.swapper.privateKey}`);
   console.log(`Faucet signer wallet: ${wallets.faucet.address}`);
