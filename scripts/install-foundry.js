@@ -97,6 +97,60 @@ function getLatestFoundryZipUrl() {
   return `https://github.com/foundry-rs/foundry/releases/latest/download/foundry_nightly_${platform}.zip`;
 }
 
+function fetchJson(url) {
+  return new Promise((resolvePromise, reject) => {
+    https
+      .get(url, { headers: { "User-Agent": "mkt-install-foundry", Accept: "application/vnd.github+json" } }, (res) => {
+        if (res.statusCode !== 200) {
+          return reject(new Error(`HTTP ${res.statusCode} for ${url}`));
+        }
+        let raw = "";
+        res.setEncoding("utf8");
+        res.on("data", (chunk) => (raw += chunk));
+        res.on("end", () => {
+          try {
+            resolvePromise(JSON.parse(raw));
+          } catch (error) {
+            reject(error);
+          }
+        });
+      })
+      .on("error", reject);
+  });
+}
+
+async function getLatestFoundryZipUrlFromApi() {
+  const release = await fetchJson("https://api.github.com/repos/foundry-rs/foundry/releases/latest");
+  const assets = Array.isArray(release?.assets) ? release.assets : [];
+  const arch = process.arch === "arm64" ? "aarch64" : "x86_64";
+
+  let platformCandidates = [];
+  if (process.platform === "win32") {
+    platformCandidates = [`${arch}_pc-windows-msvc`];
+  } else if (process.platform === "darwin") {
+    platformCandidates = [`${arch}-apple-darwin`];
+  } else {
+    platformCandidates = [`${arch}-unknown-linux-musl`, `${arch}-unknown-linux-gnu`];
+  }
+
+  for (const platform of platformCandidates) {
+    const exact = assets.find((a) => typeof a?.name === "string" && a.name.endsWith(`${platform}.zip`));
+    if (exact?.browser_download_url) return exact.browser_download_url;
+  }
+
+  for (const platform of platformCandidates) {
+    const loose = assets.find(
+      (a) =>
+        typeof a?.name === "string" &&
+        a.name.includes(platform) &&
+        a.name.endsWith(".zip")
+    );
+    if (loose?.browser_download_url) return loose.browser_download_url;
+  }
+
+  return null;
+}
+
 function extractZip(zipPath, destination) {
   if (isWin) {
     run("powershell", [
@@ -144,11 +198,13 @@ function installViaFoundryupAndMirrorLocal() {
   if (!commandAvailable("bash", ["--version"])) {
     throw new Error("bash not found for foundryup fallback");
   }
-  if (!commandAvailable("curl", ["--version"])) {
-    throw new Error("curl not found for foundryup fallback");
+  if (commandAvailable("curl", ["--version"])) {
+    run("bash", ["-lc", "curl -L https://foundry.paradigm.xyz | bash && ~/.foundry/bin/foundryup"]);
+  } else if (commandAvailable("wget", ["--version"])) {
+    run("bash", ["-lc", "wget -qO- https://foundry.paradigm.xyz | bash && ~/.foundry/bin/foundryup"]);
+  } else {
+    throw new Error("neither curl nor wget found for foundryup fallback");
   }
-
-  run("bash", ["-lc", "curl -L https://foundry.paradigm.xyz | bash && ~/.foundry/bin/foundryup"]);
 
   const home = process.env.HOME || process.env.USERPROFILE || "";
   const foundryupBin = join(home, ".foundry", "bin");
@@ -183,7 +239,13 @@ async function installBinaries() {
     unlinkSync(staleLocalZip);
   }
 
-  const url = getLatestFoundryZipUrl();
+  let url = null;
+  try {
+    url = await getLatestFoundryZipUrlFromApi();
+  } catch {}
+  if (!url) {
+    url = getLatestFoundryZipUrl();
+  }
   console.log(`  Downloading Foundry from:\n  ${url}`);
 
   const zipPath = resolve(foundryDir, "_foundry_download.zip");
